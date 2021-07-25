@@ -96,6 +96,7 @@ int main(int argc, char* argv[])
  
     int dim = atoi(argv[1]); //Linear dimension of our grid - not counting ghost cells
     int maxIter = atoi(argv[2]); //Number of game steps
+    printf("GOL SHARED MEM\n"); fflush(stdout);
     printf("Using n=%i  and   iter=%i\n", dim, maxIter); fflush(stdout);
  
     size_t bytes = sizeof(int)*(dim+2)*(dim+2);

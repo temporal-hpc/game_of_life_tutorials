@@ -48,13 +48,22 @@ __global__ void GOL(int dim, int *newGrid)
  
 int main(int argc, char* argv[])
 {
+    if(argc != 3){
+        fprintf(stderr, "run as ./prog <n> <iter>\n\n");
+        exit(EXIT_FAILURE);
+    }
     int i,j,iter;
     int* h_grid; //Grid on host
     cudaArray* d_grid; //Grid on device
     int* d_newGrid; //Second grid used on device only
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
  
-    int dim = 1024; //Linear dimension of our grid - not counting ghost cells
-    int maxIter = 1<<10; //Number of game steps
+    int dim = atoi(argv[1]); //Linear dimension of our grid - not counting ghost cells
+    int maxIter = atoi(argv[2]); //Number of game steps
+    printf("GOL TEXTURE MEM\n"); fflush(stdout);
+    printf("Using n=%i  and   iter=%i\n", dim, maxIter); fflush(stdout);
  
     size_t bytes = sizeof(int)*dim*dim;
     //Allocate host Grid used for initial setup and read back from device
@@ -85,12 +94,19 @@ int main(int argc, char* argv[])
     dim3 dimGrid(linGrid,linGrid);
  
     //Main game loop
+    printf("Simulating %i iterations.......", maxIter); fflush(stdout);
+    cudaEventRecord(start);
     for (iter = 0; iter<maxIter; iter++) {
         GOL<<<dimGrid,dimBlock>>>(dim, d_newGrid);
  
         //Swap our grids and iterate again
         cudaMemcpyToArray (d_grid, 0, 0, d_newGrid, bytes, cudaMemcpyDeviceToDevice);
     }//iter loop
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+    float ms = 0.0; 
+    cudaEventElapsedTime(&ms, start, stop);
+    printf("done: %f secs\n", ms/1000.0); fflush(stdout);
  
     //Copy back results and sum
     cudaMemcpy(h_grid, d_newGrid, bytes, cudaMemcpyDeviceToHost);

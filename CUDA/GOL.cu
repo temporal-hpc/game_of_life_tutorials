@@ -110,6 +110,7 @@ int main(int argc, char* argv[]){
     dim3 cpyGridColsGridSize((int)ceil((dim+2)/(float)cpyBlockSize.x),1,1);
  
     // Main game loop
+    printf("GOL GLOBAL MEM\n"); fflush(stdout);
     printf("Simulating %i iterations.......", maxIter); fflush(stdout);
     cudaEventRecord(start);
     for (iter = 0; iter<maxIter; iter++) {
