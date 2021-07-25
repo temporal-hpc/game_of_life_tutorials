@@ -64,16 +64,23 @@ __global__ void GOL(int dim, int *grid, int *newGrid)
     }
 }
  
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]){
+    if(argc != 3){
+        fprintf(stderr, "run as ./prog <n> <iter>\n\n");
+        exit(EXIT_FAILURE);
+    }
     int i,j,iter;
     int* h_grid; //Grid on host
     int* d_grid; //Grid on device
     int* d_newGrid; //Second grid used on device only
     int* d_tmpGrid; //tmp grid pointer used to switch between grid and newGrid
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
  
-    int dim = 1024; //Linear dimension of our grid - not counting ghost cells
-    int maxIter = 1<<10; //Number of game steps
+    int dim = atoi(argv[1]); //Linear dimension of our grid - not counting ghost cells
+    int maxIter = atoi(argv[2]); //Number of game steps
+    printf("Using n=%i  and   iter=%i\n", dim, maxIter); fflush(stdout);
  
     size_t bytes = sizeof(int)*(dim+2)*(dim+2);//2 added for periodic boundary condition ghost cells
     // Allocate host Grid used for initial setup and read back from device
@@ -103,17 +110,27 @@ int main(int argc, char* argv[])
     dim3 cpyGridColsGridSize((int)ceil((dim+2)/(float)cpyBlockSize.x),1,1);
  
     // Main game loop
+    printf("Simulating %i iterations.......", maxIter); fflush(stdout);
+    cudaEventRecord(start);
     for (iter = 0; iter<maxIter; iter++) {
  
         ghostRows<<<cpyGridRowsGridSize, cpyBlockSize>>>(dim, d_grid);
+        cudaDeviceSynchronize();
         ghostCols<<<cpyGridColsGridSize, cpyBlockSize>>>(dim, d_grid);
+        cudaDeviceSynchronize();
         GOL<<<gridSize, blockSize>>>(dim, d_grid, d_newGrid);
+        cudaDeviceSynchronize();
  
         // Swap our grids and iterate again
         d_tmpGrid = d_grid;
         d_grid = d_newGrid;
         d_newGrid = d_tmpGrid;
     }//iter loop
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+    float ms = 0.0; 
+    cudaEventElapsedTime(&ms, start, stop);
+    printf("done: %f secs\n", ms/1000.0); fflush(stdout);
  
     // Copy back results and sum
     cudaMemcpy(h_grid, d_grid, bytes, cudaMemcpyDeviceToHost);
